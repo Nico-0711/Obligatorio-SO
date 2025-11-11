@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <pthread.h>
+#include <semaphore.h>
 #include <unistd.h>
 #include <time.h>
 
@@ -12,69 +13,91 @@
 
 // RECURSO COMPARTIDO: El cartel del aeropuerto. Se accede mediante un lock de lectura-escritura (rwlock)
 pthread_rwlock_t cartelVuelos;  
-int versionCartel = 0;         
+int versionCartel = 0;
 
+sem_t mutex;            // Protege las variables de control (lectoresActivos, escritoresEsperando)
+sem_t escritura;        // Controla acceso exclusivo de escritores al recurso compartido
+sem_t cola;             // Previene inanicion de escritores 
+
+int lectoresActivos = 0;
+int escritoresEsperando = 0;
 
 void dormir_milisegundos(unsigned int milisegundos) {
     usleep(milisegundos * 1000);
 }
 
 // HILO LECTOR (PASAJERO): el pasajero solo puede leer el cartel, no lo modifica y multiples pasajeros lo pueden leer a la vez.
-
 void *comportamientoPasajero(void *argumento) {
     int idPasajero = *(int *)argumento;
     free(argumento);  // libera memoria del ID recibido
     
     for (int veces = 0; veces < lecturasPorPasajero; ++veces) {
         // Simular que el pasajero esta haciendo otras cosas (checkin, cafe, etc)
-        int tiempoAntesMirar = rand() % 3001;
+        int tiempoAntesMirar = rand() % 1001;
         dormir_milisegundos(tiempoAntesMirar);
+
+        sem_wait(&cola);
+        sem_wait(&mutex);
+        lectoresActivos++;
+
+        if (lectoresActivos == 1) {
+            sem_wait(&escritura);  // Bloquea escritores mientras haya lectores
+        }
+
+        sem_post(&mutex);
+        sem_post(&cola);
         
-        // Solicita un bloqueo de lectura (rdlock) que permite múltiples lectores simultáneos pero bloquea el acceso si un oficinista esta escribiendo
-        pthread_rwlock_rdlock(&cartelVuelos);
-        
-        // Lectura del cartel (recurso compartido)
         printf("Pasajero %d esta mirando el cartel (version %d)\n", 
                idPasajero, versionCartel);
-        fflush(stdout);  // Forzar impresion inmediata
+        fflush(stdout);
         
         // Simular tiempo que tarda en leer la informacion del panel
-        int tiempoLeyendoPanel = 100 + (rand() % 401);  
+        int tiempoLeyendoPanel = 50 + (rand() % 151);  
         dormir_milisegundos(tiempoLeyendoPanel);
-        
-        // Libera permiso de lestura
-        pthread_rwlock_unlock(&cartelVuelos);
+ 
+        sem_wait(&mutex);
+        lectoresActivos--;
 
+        if (lectoresActivos == 0) {
+            sem_post(&escritura);  
+        }
+
+        sem_post(&mutex);
     }
     return NULL;
 }
 
 // HILO ESCRITOR (OFICINISTA): los oficinistas modifican el cartel, solo uno a la vez y mientras este escribe ningun pasajero puede leer
-
 void *comportamientoOficinista(void *argumento) {
     int idOficinista = *(int *)argumento;
     free(argumento); 
 
     for (int actualizacion = 0; actualizacion < cambiosPorOficinista; ++actualizacion) {
         // Simular tiempo antes de necesitar actualizar (recibir info de torre, etc)
-        int tiempoAntesActualizar = rand() % 2001;  
+        int tiempoAntesActualizar = rand() % 1001;  
         dormir_milisegundos(tiempoAntesActualizar);
         
-        // Solicita el permiso de escritura (wrlock), otorgando acceso exclusivo al oficinista y bloqueando tanto a los pasajeros como a otros oficinistas hasta que no haya nadie leyendo ni escribiendo.
-        pthread_rwlock_wrlock(&cartelVuelos);
-        
-        // Modificar el recurso compartido
+        sem_wait(&mutex);
+        escritoresEsperando++;
+        sem_post(&mutex);
+        sem_wait(&cola);
+        sem_wait(&escritura);
+        sem_wait(&mutex);
+        escritoresEsperando--;
+        sem_post(&mutex);
+
         printf("Oficinista %d esta modificando el cartel\n", idOficinista);
-        fflush(stdout);
+        fflush(stdout);  
         
         // Simular tiempo que tarda en actualizar vuelos, puertas, horarios
-        int tiempoActualizandoInfo = 500 + (rand() % 1001); 
+        int tiempoActualizandoInfo = 200 + (rand() % 301); 
         dormir_milisegundos(tiempoActualizandoInfo);
 
+        // Modificar el recurso compartido (incrementar version del cartel)
         versionCartel++;
         
-        // Libera permiso de escritura, ahora otros pueden acceder ya sea pasajeros u oficinistas
-        pthread_rwlock_unlock(&cartelVuelos);
+        sem_post(&cola);
+        sem_post(&escritura);
     }
     return NULL;
 }
@@ -82,12 +105,25 @@ void *comportamientoOficinista(void *argumento) {
 int main(void) {
     srand((unsigned int)time(NULL));
     
-    //Inicializar el candado Read-Write Lock, mecanismo de sincronizacion
-    if (pthread_rwlock_init(&cartelVuelos, NULL) != 0) {
-        perror("pthread_rwlock_init");
+    if (sem_init(&mutex, 0, 1) != 0) {
+        perror("sem_init mutex");
+        return EXIT_FAILURE;
+    }
+
+    if (sem_init(&escritura, 0, 1) != 0) {
+        perror("sem_init escritura");
+        sem_destroy(&mutex);
         return EXIT_FAILURE;
     }
     
+    if (sem_init(&cola, 0, 1) != 0) {
+        perror("sem_init cola");
+        sem_destroy(&mutex);
+        sem_destroy(&escritura);
+        return EXIT_FAILURE;
+    }
+    
+    //Declarar arrays para almacenar los identificadores de hilos
     pthread_t hilosPasajeros[totalPasajeros];
     pthread_t hilosOficinistas[totalOficinistas];
     
@@ -95,10 +131,10 @@ int main(void) {
     printf("Pasajeros: %d | Oficinistas: %d\n", totalPasajeros, totalOficinistas);
     printf("Iniciando simulacion...\n\n");
     
-    //Crear hilos ESCRITORES = Ofinicinistas
+    // Crear hilos ESCRITORES = Oficinistas
     for (int i = 0; i < totalOficinistas; ++i) {
         // Asignar memoria dinamica para pasar el ID al hilo, necesario porque el loop cambiaria el valor de 'i'
-        int  *idOficinista = malloc(sizeof(int));
+        int *idOficinista = malloc(sizeof(int));
         if (idOficinista == NULL) {
             perror("malloc oficinista");
             return EXIT_FAILURE;
@@ -121,14 +157,15 @@ int main(void) {
         }
         *idPasajero = i + 1;
    
-        if (pthread_create(&hilosPasajeros[i], NULL,comportamientoPasajero, idPasajero) != 0) {
+        if (pthread_create(&hilosPasajeros[i], NULL, comportamientoPasajero, idPasajero) != 0) {
             perror("pthread_create pasajero");
             free(idPasajero);
             return EXIT_FAILURE;
         }
     }
     
-    //Esperar a que TODOS los oficinistas terminen sus actualizaciones, pthread_join bloquea hasta que el hilo termine
+    // Esperar a que TODOS los oficinistas terminen sus actualizaciones
+    // pthread_join bloquea hasta que el hilo termine
     for (int i = 0; i < totalOficinistas; ++i) {
         pthread_join(hilosOficinistas[i], NULL);
     }
@@ -138,8 +175,9 @@ int main(void) {
         pthread_join(hilosPasajeros[i], NULL);
     }
     
-    // PASO 6: Destruir el candado Read-Write Lock (liberar recursos)
-    pthread_rwlock_destroy(&cartelVuelos);
+    sem_destroy(&mutex);
+    sem_destroy(&escritura);
+    sem_destroy(&cola);
 
     printf("\n=== Simulacion finalizada ===\n");
     printf("Version final del cartel: %d\n", versionCartel);
@@ -147,23 +185,3 @@ int main(void) {
     
     return 0;
 }
-
-/*
- * PROPIEDADES DEL pthread_rwlock_t (Read-Write Lock):
- * 
- * 1. LECTURA CONCURRENTE:
- *    - Multiples pasajeros pueden tener permiso de lectura simultaneamente
- *    - Eficiente cuando hay muchas lecturas y pocas escrituras
- * 
- * 2. ESCRITURA EXCLUSIVA:
- *    - Solo UN oficinista puede tener permiso de escritura a la vez
- *    - Mientras hay escritura activa, NADIE mas puede acceder (ni leer ni escribir)
- * 
- * 3. PREVENCION DE CONDICIONES DE CARRERA:
- *    - Garantiza que versionCartel nunca se lee mientras se modifica
- *    - Evita inconsistencias en los datos del panel
- * 
- * 4. VENTAJA vs MUTEX:
- *    - Un mutex bloquearia TODA operacion (lectura o escritura)
- *    - rwlock permite lecturas simultaneas = mas eficiente para aeropuertos
- */
