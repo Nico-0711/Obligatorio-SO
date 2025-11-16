@@ -1,7 +1,6 @@
 with Ada.Text_IO;         use Ada.Text_IO;
 with Ada.Integer_Text_IO; use Ada.Integer_Text_IO;
 with Ada.Numerics.Discrete_Random;
-with Ada.Real_Time;
 
 procedure ejer3 is
 
@@ -18,35 +17,35 @@ procedure ejer3 is
 
    -- defino constantes
    Num_Vacas     : constant Integer := 100;
-   Cap_Ordeñe    : constant Integer := 15;
+   Cap_OrdeÃ±e    : constant Integer := 15;
    Cap_Mangas    : constant Integer := 5;
    Cap_Camion    : constant Integer := 50;
 
 
-   -- sala de ordeñe
-   protected Sala_Ordeñe is
+   -- sala de ordeÃ±e
+   protected Sala_OrdeÃ±e is
       entry Entrar (Id : Integer);
       procedure Salir (Id : Integer);
    private
       Dentro : Integer := 0;
-   end Sala_Ordeñe;
+   end Sala_OrdeÃ±e;
 
-   protected body Sala_Ordeñe is
-      entry Entrar (Id : Integer) when Dentro < Cap_Ordeñe is
+   protected body Sala_OrdeÃ±e is
+      entry Entrar (Id : Integer) when Dentro < Cap_OrdeÃ±e is
       begin
          Dentro := Dentro + 1;
-         Put_Line ("La vaca" & Id'Img & " está entrando al área de ordeñe");
+         Put_Line ("La vaca" & Id'Img & " estÃ¡ entrando al Ã¡rea de ordeÃ±e");
       end Entrar;
 
       procedure Salir (Id : Integer) is
       begin
          Dentro := Dentro - 1;
-         Put_Line ("La vaca" & Id'Img & " está saliendo al área de ordeñe");
+         Put_Line ("La vaca" & Id'Img & " estÃ¡ saliendo al Ã¡rea de ordeÃ±e");
       end Salir;
-   end Sala_Ordeñe;
+   end Sala_OrdeÃ±e;
 
 
-   -- area de vacunación
+   -- area de vacunaciÃ³n
    protected Vacunacion is
       entry Entrar_Pasillo (Id : Integer);
       entry Entrar_Manga   (Id : Integer);
@@ -63,7 +62,7 @@ procedure ejer3 is
       is
       begin
          Pasillo_Libre := False;
-         Put_Line ("La vaca" & Id'Img & " está entrando al área de vacunación");
+         Put_Line ("La vaca" & Id'Img & " estÃ¡ entrando al Ã¡rea de vacunaciÃ³n");
       end Entrar_Pasillo;
 
       entry Entrar_Manga (Id : Integer) when True is
@@ -75,7 +74,7 @@ procedure ejer3 is
       procedure Salir_Manga (Id : Integer) is
       begin
          En_Mangas := En_Mangas - 1;
-         Put_Line ("La vaca" & Id'Img & " está saliendo al área de vacunación");
+         Put_Line ("La vaca" & Id'Img & " estÃ¡ saliendo al Ã¡rea de vacunaciÃ³n");
       end Salir_Manga;
 
    end Vacunacion;
@@ -99,10 +98,10 @@ procedure ejer3 is
       begin
          if C1 < Cap_Camion then
             C1 := C1 + 1;
-            Put_Line ("La vaca" & Id'Img & " está entrando al Camión 1");
+            Put_Line ("La vaca" & Id'Img & " estÃ¡ entrando al CamiÃ³n 1");
          else
             C2 := C2 + 1;
-            Put_Line ("La vaca" & Id'Img & " está entrando al Camión 2");
+            Put_Line ("La vaca" & Id'Img & " estÃ¡ entrando al CamiÃ³n 2");
          end if;
       end Subir;
 
@@ -126,12 +125,12 @@ procedure ejer3 is
          My_Id := Id;
       end Start;
 
-      -- ORDEÑE
-      Sala_Ordeñe.Entrar (My_Id);
+      -- ORDEÃ‘E
+      Sala_OrdeÃ±e.Entrar (My_Id);
       delay Duration (Rand(3));
-      Sala_Ordeñe.Salir (My_Id);
+      Sala_OrdeÃ±e.Salir (My_Id);
 
-      -- VACUNACIÓN
+      -- VACUNACIÃ“N
       Vacunacion.Entrar_Pasillo (My_Id);
       Vacunacion.Entrar_Manga (My_Id);
       delay Duration (Rand(2));
