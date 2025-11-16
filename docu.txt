@@ -1,0 +1,169 @@
+
+/*
+ * ============================================================================
+ * EXPLICACION DEL PATRON LECTORES-ESCRITORES CON SEMAFOROS
+ * ============================================================================
+ * 
+ * Este codigo implementa el clasico problema de Lectores-Escritores usando
+ * semaforos POSIX en lugar de pthread_rwlock_t. Es una implementacion de bajo
+ * nivel que muestra explicitamente como funciona la sincronizacion.
+ * 
+ * VENTAJAS DE USAR SEMAFOROS vs RWLOCK:
+ * ----------------------------------------
+ * 1. CONTROL GRANULAR: Permite implementar politicas personalizadas
+ *    (ej: prioridad a escritores, limites de lectores, timeouts)
+ * 
+ * 2. PORTABILIDAD: Los semaforos POSIX estan mas ampliamente soportados
+ *    que pthread_rwlock_t en sistemas embebidos o antiguos
+ * 
+ * 3. APRENDIZAJE: Entender la implementacion con semaforos ayuda a comprender
+ *    como funcionan internamente los rwlocks
+ * 
+ * 4. FLEXIBILIDAD: Se pueden agregar facilmente caracteristicas como:
+ *    - Prioridad dinamica
+ *    - Limites de concurrencia
+ *    - Metricas de rendimiento
+ * 
+ * DESVENTAJAS vs RWLOCK:
+ * ----------------------
+ * 1. MAS CODIGO: Requiere manejar manualmente los contadores y la logica
+ * 2. MAS PROPENSO A ERRORES: Un error en el protocolo puede causar deadlocks
+ * 3. MENOS OPTIMIZADO: Los rwlocks pueden estar optimizados a nivel de kernel
+ * 
+ * COMPONENTES CLAVE:
+ * ------------------
+ * 
+ * 1. SEMAFORO 'mutex':
+ *    - Protege las variables compartidas (lectoresActivos, escritoresEsperando)
+ *    - Se mantiene bloqueado solo durante operaciones muy cortas
+ *    - Valor inicial = 1 (binario)
+ * 
+ * 2. SEMAFORO 'escritura':
+ *    - Controla el acceso EXCLUSIVO al recurso compartido
+ *    - El primer lector lo bloquea, el ultimo lector lo libera
+ *    - Los escritores siempre lo bloquean
+ *    - Valor inicial = 1 (binario)
+ * 
+ * 3. SEMAFORO 'cola':
+ *    - Implementa un sistema de turnos FIFO (First In, First Out)
+ *    - Previene WRITER STARVATION (inanicion de escritores)
+ *    - Sin este semaforo, un flujo constante de lectores podria
+ *      bloquear indefinidamente a los escritores
+ *    - Valor inicial = 1 (binario)
+ * 
+ * 4. VARIABLE 'lectoresActivos':
+ *    - Cuenta cuantos pasajeros estan leyendo simultaneamente
+ *    - Cuando llega a 1, bloquea a los escritores
+ *    - Cuando llega a 0, desbloquea a los escritores
+ * 
+ * 5. VARIABLE 'escritoresEsperando':
+ *    - Cuenta cuantos oficinistas estan esperando para escribir
+ *    - Util para implementar politicas de prioridad (no usado en este codigo)
+ *    - Podria usarse para dar prioridad a escritores cuando hay muchos esperando
+ * 
+ * PROTOCOLO DETALLADO:
+ * --------------------
+ * 
+ * LECTOR (PASAJERO):
+ *   ENTRADA:
+ *     1. wait(cola)           -> Obtener turno en la fila
+ *     2. wait(mutex)          -> Proteger variables de control
+ *     3. lectoresActivos++    -> Incrementar contador
+ *     4. if (lectoresActivos == 1) wait(escritura)  -> Primer lector bloquea escritores
+ *     5. post(mutex)          -> Liberar variables de control
+ *     6. post(cola)           -> Liberar turno (otros pueden entrar)
+ *     7. LEER RECURSO         -> Operacion de lectura
+ * 
+ *   SALIDA:
+ *     1. wait(mutex)          -> Proteger variables de control
+ *     2. lectoresActivos--    -> Decrementar contador
+ *     3. if (lectoresActivos == 0) post(escritura)  -> Ultimo lector desbloquea escritores
+ *     4. post(mutex)          -> Liberar variables de control
+ * 
+ * ESCRITOR (OFICINISTA):
+ *   ENTRADA:
+ *     1. wait(mutex)          -> Proteger variables de control
+ *     2. escritoresEsperando++ -> Incrementar contador
+ *     3. post(mutex)          -> Liberar variables de control
+ *     4. wait(cola)           -> Obtener turno en la fila
+ *     5. wait(escritura)      -> Obtener acceso EXCLUSIVO al recurso
+ *     6. wait(mutex)          -> Proteger variables de control
+ *     7. escritoresEsperando-- -> Decrementar contador
+ *     8. post(mutex)          -> Liberar variables de control
+ *     9. ESCRIBIR RECURSO     -> Operacion de escritura
+ * 
+ *   SALIDA:
+ *     1. post(cola)           -> Liberar turno
+ *     2. post(escritura)      -> Liberar acceso exclusivo
+ * 
+ * PREVENCIÓN DE DEADLOCKS:
+ * ------------------------
+ * El orden estricto de adquisicion de semaforos previene deadlocks:
+ * - Siempre se adquiere 'cola' antes que 'escritura'
+ * - Siempre se adquiere 'mutex' antes que cualquier operacion sobre contadores
+ * - Todos los semaforos se liberan en orden inverso al que se adquieren
+ * 
+ * PREVENCION DE INANICION (STARVATION):
+ * --------------------------------------
+ * El semaforo 'cola' implementa un sistema de turnos justo:
+ * - Los lectores que llegan mientras un escritor espera, deben esperar su turno
+ * - Esto garantiza que los escritores eventualmente accedan al recurso
+ * - Sin 'cola', un flujo constante de lectores bloquearia indefinidamente
+ *   a los escritores
+ * 
+ * PROPIEDADES DEL SISTEMA:
+ * -------------------------
+ * 
+ * 1. LECTURA CONCURRENTE:
+ *    - Multiples pasajeros pueden leer simultaneamente (lectoresActivos > 1)
+ *    - Muy eficiente para escenarios con muchas lecturas
+ * 
+ * 2. ESCRITURA EXCLUSIVA:
+ *    - Solo un oficinista puede escribir a la vez
+ *    - Mientras escribe, ningun lector ni escritor puede acceder
+ * 
+ * 3. EXCLUSION MUTUA:
+ *    - Lectores y escritores NUNCA acceden simultaneamente
+ *    - Garantizado por el semaforo 'escritura'
+ * 
+ * 4. AUSENCIA DE CONDICIONES DE CARRERA:
+ *    - versionCartel nunca se lee mientras se modifica
+ *    - Los contadores estan protegidos por 'mutex'
+ * 
+ * 5. EQUIDAD (FAIRNESS):
+ *    - El semaforo 'cola' implementa orden FIFO
+ *    - Ningún hilo puede sufrir inanicion indefinida
+ * 
+ * COMPARACION CON pthread_rwlock_t:
+ * ----------------------------------
+ * 
+ * SEMAFOROS (este codigo):
+ *   + Control total sobre la politica de sincronizacion
+ *   + Mas portable
+ *   + Educativo (muestra la implementacion interna)
+ *   - Mas codigo y mas complejo
+ *   - Mayor probabilidad de errores
+ *   - Requiere manejo manual de contadores
+ * 
+ * pthread_rwlock_t (ejercicio2.c):
+ *   + Mas simple y conciso
+ *   + Menos propenso a errores
+ *   + Potencialmente mas optimizado
+ *   + API de mas alto nivel
+ *   - Menos control sobre politicas
+ *   - Dependiente de la implementacion del sistema
+ * 
+ * ¿CUANDO USAR CADA UNO?
+ * ----------------------
+ * 
+ * USA pthread_rwlock_t cuando:
+ *   - Necesites una solucion rapida y confiable
+ *   - El comportamiento estandar sea suficiente
+ *   - Quieras codigo mas mantenible
+ * 
+ * USA semaforos cuando:
+ *   - Necesites politicas personalizadas (prioridades, limites)
+ *   - Requieras maxima portabilidad
+ *   - Necesites metricas detalladas de sincronizacion
+ *   - Estes aprendiendo sobre concurrencia
+ */

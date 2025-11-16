@@ -1,27 +1,28 @@
 #!/usr/bin/env bash
 
+DIR_BASE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+DIR_DATOS="$DIR_BASE/data"
+ARCHIVO_USUARIOS="$DIR_DATOS/usuarios.db"      # formato: usuario:contrasena
+ARCHIVO_SESION="$DIR_DATOS/sesion.db"         # contiene el usuario logueado actualmente (vacío si nadie)
+ARCHIVO_PRODUCTOS="$DIR_DATOS/productos.db"   # formato por línea: CODIGO|TIPO|MODELO|DESCRIPCION|CANTIDAD|PRECIO
 
-BASE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-DATA_DIR="$BASE_DIR/data"
-USERS_FILE="$DATA_DIR/users.db"      # formato: usuario:contraseña
-SESSION_FILE="$DATA_DIR/session.db"  # contiene el usuario logueado actualmente (vacío si nadie)
-PRODUCTS_FILE="$DATA_DIR/products.db" # formato por línea: CÓDIGO|TIPO|MODELO|DESCRIPCION|CANTIDAD|PRECIO
+# Tipos de pintura
+TIPOS=("Base" "Layer" "Shade" "Dry" "Contrast" "Technical" "Texture" "Mediums")
 
-
+# Crear archivos y estructura inicial
 crear_archivos() {
-    mkdir -p "$DATA_DIR"
-    touch "$USERS_FILE" "$SESSION_FILE" "$PRODUCTS_FILE"
+    mkdir -p "$DIR_DATOS"
+    touch "$ARCHIVO_USUARIOS" "$ARCHIVO_SESION" "$ARCHIVO_PRODUCTOS"
     # Crear usuario admin por defecto si no existe
-    if ! grep -q "^admin:" "$USERS_FILE" 2>/dev/null; then
-        echo "admin:admin" >> "$USERS_FILE"
+    if ! grep -q "^admin:" "$ARCHIVO_USUARIOS" 2>/dev/null; then
+        echo "admin:admin" >> "$ARCHIVO_USUARIOS"
     fi
 }
 
-TYPES=("Base" "Layer" "Shade" "Dry" "Contrast" "Technical" "Texture" "Mediums")
-
-valid_type() {
+# Verificar si un tipo es válido
+tipo_valido() {
     local t="$1"
-    for x in "${TYPES[@]}"; do
+    for x in "${TIPOS[@]}"; do
         if [ "$x" = "$t" ]; then
             return 0
         fi
@@ -29,146 +30,145 @@ valid_type() {
     return 1
 }
 
-usuario_actual (){
-    if [ -s "$SESSION_FILE" ]; then
-        cat "$SESSION_FILE"
+# Devuelve el usuario actualmente logueado (vacío si ninguno)
+usuario_actual() {
+    if [ -s "$ARCHIVO_SESION" ]; then
+        cat "$ARCHIVO_SESION"
     else
         echo ""
     fi
 }
 
-crear_usuario (){
+# Crear nuevo usuario
+crear_usuario() {
     while true; do
-        read -p "Nombre de Usuario:" nombre
-        if grep -q "^$nombre:" "$USERS_FILE"; then
-            echo "Error: el usuario '$nombre' ya existe. Intente con otro porfavor."
+        read -p "Nombre de usuario: " nombre_usuario
+        if grep -q "^$nombre_usuario:" "$ARCHIVO_USUARIOS"; then
+            echo "Error: el usuario '$nombre_usuario' ya existe. Intente con otro por favor."
         else
             echo
-            read -s -p "Contraseña: " contra
+            read -s -p "Contrasena: " contrasena
             echo
-            read -s -p "Confirmar contraseña: " contra2
+            read -s -p "Confirmar contrasena: " contrasena2
             echo
-            if [ -z "$contra" ]; then
-                echo "La contraseña no puede ser vacía."
-            elif [ "$contra" != "$contra2" ]; then
-                echo "Las contraseñas no coinciden. Intente de nuevo."
+            if [ -z "$contrasena" ]; then
+                echo "La contrasena no puede ser vacía."
+            elif [ "$contrasena" != "$contrasena2" ]; then
+                echo "Las contrasenas no coinciden. Intente de nuevo."
             else
                 break
             fi
         fi
     done
-    echo "$nombre:$contra" >> "$USERS_FILE"
-    echo "Usuario '$nombre' creado con éxito."
+    echo "$nombre_usuario:$contrasena" >> "$ARCHIVO_USUARIOS"
+    echo "Usuario '$nombre_usuario' creado con éxito."
 }
 
-cambiar_contra (){
-    user="$(usuario_actual)"
-    if [ -z "$user" ]; then
-        echo "Necesitas logearte para cambiar la contraseña."
+# Cambiar contrasena del usuario logueado
+cambiar_contrasena() {
+    usuario_act="$(usuario_actual)"
+    if [ -z "$usuario_act" ]; then
+        echo "Necesitas logearte para cambiar la contrasena."
         return
     fi
 
     while true; do
-        echo "Cambiando la contraseña de '$user'"
-        read -s -p "Contraseña actual: " contraAct
+        echo "Cambiando la contrasena de '$usuario_act'"
+        read -s -p "Contrasena actual: " contrasena_actual
         echo
 
-        contraGuardada="$(grep "^$user:" "$USERS_FILE" | cut -d: -f2-)"
+        contrasena_guardada="$(grep "^$usuario_act:" "$ARCHIVO_USUARIOS" | cut -d: -f2-)"
 
-        if [ "$contraAct" != "$contraGuardada" ]; then
-            echo "Contraseña actual incorrecta."
+        if [ "$contrasena_actual" != "$contrasena_guardada" ]; then
+            echo "Contrasena actual incorrecta."
             return
         fi
 
-        read -s -p "Nueva contraseña: " nuevaContra
+        read -s -p "Nueva contrasena: " nueva_contrasena
         echo
-        read -s -p "Confirmar nueva contraseña: " nuevaContra2
+        read -s -p "Confirmar nueva contrasena: " nueva_contrasena2
         echo
 
-        if [ -z "$nuevaContra" ]; then
-            echo "La nueva contraseña no puede ser vacía."
-        elif [ "$nuevaContra" != "$nuevaContra2" ]; then
-            echo "Las contraseñas no coinciden. Intente otra vez."
+        if [ -z "$nueva_contrasena" ]; then
+            echo "La nueva contrasena no puede ser vacía."
+        elif [ "$nueva_contrasena" != "$nueva_contrasena2" ]; then
+            echo "Las contrasenas no coinciden. Intente otra vez."
         else
-            # Reemplazar contraseña en el archivo
-            sed -i "s/^$user:.*/$user:$nuevaContra/" "$USERS_FILE"
-            echo "Contraseña actualizada con éxito."
+            # Reemplazar contrasena en el archivo
+            sed -i "s/^$usuario_act:.*/$usuario_act:$nueva_contrasena/" "$ARCHIVO_USUARIOS"
+            echo "Contrasena actualizada con éxito."
             break
         fi
     done
 }
 
-
-login_usuario (){
+# Login de usuario
+login_usuario() {
     if [ -n "$(usuario_actual)" ]; then
         echo "Ya hay un usuario logueado: $(usuario_actual). Haga logout antes."
         return
     fi
 
     while true; do
-        read -p "Usuario: " usuario
-        read -s -p "Contraseña: " contra
+        read -p "Usuario: " usuario_int
+        read -s -p "Contrasena: " contrasena_int
         echo
 
-        contraGuardada="$(grep "^$usuario:" "$USERS_FILE" | cut -d: -f2-)"
+        contrasena_guardada="$(grep "^$usuario_int:" "$ARCHIVO_USUARIOS" | cut -d: -f2-)"
 
-        if [ -z "$contraGuardada" ]; then
+        if [ -z "$contrasena_guardada" ]; then
             echo "Usuario no encontrado."
             return
         fi
 
-        if [ "$contra" = "$contraGuardada" ]; then
-            echo "$usuario" > "$SESSION_FILE"
-            echo "BIENVENIDO: $usuario"
+        if [ "$contrasena_int" = "$contrasena_guardada" ]; then
+            echo "$usuario_int" > "$ARCHIVO_SESION"
+            echo "BIENVENIDO: $usuario_int"
             return
         else
-            echo "Contraseña incorrecta."
+            echo "Contrasena incorrecta."
         fi
     done
 }
 
-
-logout_usuario (){
+# Logout del usuario actual
+logout_usuario() {
     if [ ! -n "$(usuario_actual)" ]; then
         echo "No hay ningún usuario logeado."
         return
     fi
-    echo "" > "$SESSION_FILE"
+    echo "" > "$ARCHIVO_SESION"
     echo "Logout exitoso."
 }
 
-ingresar_producto () {
-    user="$(usuario_actual)"
-    if [ -z "$user" ]; then
+# Ingresar o actualizar un producto en inventario
+ingresar_producto() {
+    usuario_act="$(usuario_actual)"
+    if [ -z "$usuario_act" ]; then
         echo "Necesitas logearte para ingresar un producto."
         return
     fi
 
     echo "Ingreso de nuevo producto"
-    echo "Tipos válidos: Base, Layer, Shade, Dry, Contrast, Technical, Texture, Mediums"
+    echo "Tipos válidos: ${TIPOS[*]}"
 
     read -p "Tipo: " tipo
-
-    case "$tipo" in
-        Base|Layer|Shade|Dry|Contrast|Technical|Texture|Mediums)
-            ;;
-        *)
-            echo "Tipo inválido. Operación cancelada."
-            return
-            ;;
-    esac
-
-    read -p "Modelo (nombre): " modelo
-    if [ -z "$modelo" ]; then
-        echo "Modelo no puede estar vacío."
+    if ! tipo_valido "$tipo"; then
+        echo "Tipo inválido. Operación cancelada."
         return
     fi
 
-    read -p "Descripción breve: " desc
+    read -p "Modelo (nombre): " modelo
+    if [ -z "$modelo" ]; then
+        echo "El modelo no puede estar vacío."
+        return
+    fi
+
+    read -p "Descripción breve: " descripcion
 
     while true; do
-        read -p "Cantidad (entero >=0): " cant
-        if [[ "$cant" =~ ^[0-9]+$ ]]; then break
+        read -p "Cantidad (entero >=0): " cantidad
+        if [[ "$cantidad" =~ ^[0-9]+$ ]]; then break
         else echo "Cantidad inválida."; fi
     done
 
@@ -178,109 +178,62 @@ ingresar_producto () {
         else echo "Precio inválido."; fi
     done
 
-    codigo="$(echo "$tipo" | cut -c1-3 | tr '[:lower:]' '[:upper:]')"
+    codigo_tipo="$(echo "$tipo" | cut -c1-3 | tr '[:lower:]' '[:upper:]')"
 
-    tmpfile="$(mktemp)"
+    archivo_tmp="$(mktemp)"
     encontrado=0
 
+    # Leer productos existentes y actualizar si coincide tipo+modelo
     while IFS='|' read -r cod t m d old_cant old_precio; do
         if [ "$t" = "$tipo" ] && [ "$m" = "$modelo" ]; then
-            nuevo_cant=$((old_cant + cant))
-            echo "$cod|$t|$m|$desc|$nuevo_cant|$precio" >> "$tmpfile"
+            nuevo_cant=$((old_cant + cantidad))
+            echo "$cod|$t|$m|$descripcion|$nuevo_cant|$precio" >> "$archivo_tmp"
             encontrado=1
         else
-            echo "$cod|$t|$m|$d|$old_cant|$old_precio" >> "$tmpfile"
+            echo "$cod|$t|$m|$d|$old_cant|$old_precio" >> "$archivo_tmp"
         fi
-    done < "$PRODUCTS_FILE"
+    done < "$ARCHIVO_PRODUCTOS"
 
     if [ "$encontrado" -eq 0 ]; then
-        printf "%s|%s|%s|%s|%s|%s\n" "$codigo" "$tipo" "$modelo" "$desc" "$cant" "$precio" >> "$tmpfile"
+        printf "%s|%s|%s|%s|%s|%s\n" "$codigo_tipo" "$tipo" "$modelo" "$descripcion" "$cantidad" "$precio" >> "$archivo_tmp"
         echo "Producto nuevo registrado."
     else
         echo "Producto existente actualizado."
     fi
 
-    mv "$tmpfile" "$PRODUCTS_FILE"
+    mv "$archivo_tmp" "$ARCHIVO_PRODUCTOS"
 
     echo "✅ Estado actual del producto:"
-    grep "|$tipo|$modelo|" "$PRODUCTS_FILE"
+    grep "|$tipo|$modelo|" "$ARCHIVO_PRODUCTOS" || true
 }
 
+# Vender/realizar compra de productos (versión interactiva con lista numerada)
 vender_producto() {
-    user="$(usuario_actual)"
-    if [ -z "$user" ]; then
-        echo "Necesitas logearte para vender un producto."
-        return
-    fi
-
-    echo "Venta de producto"
-    read -p "Tipo del producto: " tipo
-    read -p "Modelo del producto: " modelo
-    read -p "Cantidad a vender: " cantidad
-
-    # Validación cantidad positiva
-    if ! [[ "$cantidad" =~ ^[0-9]+$ ]] || [ "$cantidad" -le 0 ]; then
-        echo "Cantidad inválida."
-        return
-    fi
-
-    encontrado=0
-    tmpfile="$(mktemp)"
-
-    while IFS='|' read -r codigo t m desc cant precio; do
-        if [ "$tipo" = "$t" ] && [ "$modelo" = "$m" ]; then
-            encontrado=1
-
-            if [ "$cant" -lt "$cantidad" ]; then
-                echo "Stock insuficiente. Disponible: $cant"
-                rm "$tmpfile"
-                return
-            fi
-
-            nuevo_cant=$((cant - cantidad))
-            echo "$codigo|$t|$m|$desc|$nuevo_cant|$precio" >> "$tmpfile"
-            echo "Venta realizada. Nuevo stock: $nuevo_cant"
-        else
-            echo "$codigo|$t|$m|$desc|$cant|$precio" >> "$tmpfile"
-        fi
-    done < "$PRODUCTS_FILE"
-
-    if [ "$encontrado" -eq 0 ]; then
-        echo "Producto no encontrado."
-        rm "$tmpfile"
-        return
-    fi
-
-    mv "$tmpfile" "$PRODUCTS_FILE"
-}
-
-
-vender_producto () {
-    user="$(usuario_actual)"
-    if [ -z "$user" ]; then
+    usuario_act="$(usuario_actual)"
+    if [ -z "$usuario_act" ]; then
         echo "Debes estar logeado para vender productos."
         return
     fi
 
-    if [ ! -s "$PRODUCTS_FILE" ]; then
+    if [ ! -s "$ARCHIVO_PRODUCTOS" ]; then
         echo "No hay productos cargados."
         return
     fi
 
     # Mostrar lista numerada de productos
     echo "Productos disponibles:"
-    mapfile -t productos < "$PRODUCTS_FILE"
+    mapfile -t lista_productos < "$ARCHIVO_PRODUCTOS"
 
-    for i in "${!productos[@]}"; do
-        IFS='|' read -r cod tipo mod desc cant precio <<< "${productos[$i]}"
+    for i in "${!lista_productos[@]}"; do
+        IFS='|' read -r cod tipo mod desc cant precio <<< "${lista_productos[$i]}"
         echo "$((i+1))) $tipo - $mod - \$ $precio (Stock: $cant)"
     done
 
     # Compra acumulada
-    resumenTipos=()
-    resumenModelos=()
-    resumenCantidades=()
-    resumenTotales=()
+    resumen_tipos=()
+    resumen_modelos=()
+    resumen_cantidades=()
+    resumen_totales=()
 
     while true; do
         read -p "Ingrese número de producto a comprar (0 para finalizar): " num
@@ -288,13 +241,13 @@ vender_producto () {
             break
         fi
 
-        if ! [[ "$num" =~ ^[0-9]+$ ]] || (( num < 1 || num > ${#productos[@]} )); then
+        if ! [[ "$num" =~ ^[0-9]+$ ]] || (( num < 1 || num > ${#lista_productos[@]} )); then
             echo "Número inválido."
             continue
         fi
 
         index=$((num-1))
-        IFS='|' read -r cod tipo mod desc cant precio <<< "${productos[$index]}"
+        IFS='|' read -r cod tipo mod desc cant precio <<< "${lista_productos[$index]}"
 
         if [ "$cant" -eq 0 ]; then
             echo "No hay stock disponible para este producto."
@@ -307,56 +260,57 @@ vender_producto () {
             continue
         fi
 
-        # Restar stock
+        # Restar stock en la lista temporal
         nuevoCant=$((cant - compra))
-        productos[$index]="$cod|$tipo|$mod|$desc|$nuevoCant|$precio"
+        lista_productos[$index]="$cod|$tipo|$mod|$desc|$nuevoCant|$precio"
 
         total=$((precio * compra))
-        resumenTipos+=("$tipo")
-        resumenModelos+=("$mod")
-        resumenCantidades+=("$compra")
-        resumenTotales+=("$total")
+        resumen_tipos+=("$tipo")
+        resumen_modelos+=("$mod")
+        resumen_cantidades+=("$compra")
+        resumen_totales+=("$total")
 
         echo "Producto agregado a la compra."
     done
 
     # Si no se compró nada
-    if [ ${#resumenTipos[@]} -eq 0 ]; then
+    if [ ${#resumen_tipos[@]} -eq 0 ]; then
         echo "No se realizó ninguna compra."
         return
     fi
 
     # Guardar stock actualizado
-    printf "%s\n" "${productos[@]}" > "$PRODUCTS_FILE"
+    printf "%s\n" "${lista_productos[@]}" > "$ARCHIVO_PRODUCTOS"
 
     echo
     echo "====== RESUMEN DE COMPRA ======"
-    totalFinal=0
-    for i in "${!resumenTipos[@]}"; do
-        echo "- ${resumenTipos[$i]} | ${resumenModelos[$i]} | Cantidad: ${resumenCantidades[$i]} | Total: \$ ${resumenTotales[$i]}"
-        totalFinal=$((totalFinal + resumenTotales[$i]))
+    total_final=0
+    for i in "${!resumen_tipos[@]}"; do
+        echo "- ${resumen_tipos[$i]} | ${resumen_modelos[$i]} | Cantidad: ${resumen_cantidades[$i]} | Total: \$ ${resumen_totales[$i]}"
+        total_final=$((total_final + resumen_totales[$i]))
     done
-    echo "TOTAL A PAGAR: \$ $totalFinal"
+    echo "TOTAL A PAGAR: \$ $total_final"
     echo "=============================="
 }
 
-filtrar_productos () {
-    if [ ! -s "$PRODUCTS_FILE" ]; then
+# Filtrar y listar productos por tipo (o todos si filtro vacío)
+filtrar_productos() {
+    if [ ! -s "$ARCHIVO_PRODUCTOS" ]; then
         echo "No hay productos en el inventario."
         return
     fi
 
-    echo "Filtrar por tipo (Base, Layer, Shade, Dry, Contrast, Technical, Texture, Mediums)"
+    echo "Filtrar por tipo (${TIPOS[*]})"
     read -p "Dejar vacío para ver todos: " filtro
 
     echo "------ PRODUCTOS ------"
 
     if [ -z "$filtro" ]; then
-        cat "$PRODUCTS_FILE" | while IFS='|' read cod tipo mod desc cant precio; do
+        while IFS='|' read -r cod tipo mod desc cant precio; do
             echo "$tipo - $mod - Cant: $cant - Precio: \$ $precio"
-        done
+        done < "$ARCHIVO_PRODUCTOS"
     else
-        grep -i "|$filtro|" "$PRODUCTS_FILE" | while IFS='|' read cod tipo mod desc cant precio; do
+        grep -i "|$filtro|" "$ARCHIVO_PRODUCTOS" | while IFS='|' read -r cod tipo mod desc cant precio; do
             echo "$tipo - $mod - Cant: $cant - Precio: \$ $precio"
         done
     fi
@@ -364,39 +318,44 @@ filtrar_productos () {
     echo "-----------------------"
 }
 
-crear_reporteCSV () {
-    mkdir -p "$BASE_DIR/Datos"
-    REPORTE="$BASE_DIR/Datos/datos.CSV"
+# Crear reporte CSV en carpeta Datos
+crear_reporteCSV() {
+    mkdir -p "$DIR_BASE/Datos"
+    REPORTE_CSV="$DIR_BASE/Datos/datos.CSV"
 
-    echo "Código,Tipo,Modelo,Descripción,Cantidad,Precio" > "$REPORTE"
+    echo "Código,Tipo,Modelo,Descripción,Cantidad,Precio" > "$REPORTE_CSV"
 
-    while IFS='|' read cod tipo mod desc cant precio; do
-        echo "$cod,$tipo,$mod,$desc,$cant,$precio" >> "$REPORTE"
-    done < "$PRODUCTS_FILE"
+    while IFS='|' read -r cod tipo mod desc cant precio; do
+        # Evitar líneas vacías
+        if [ -n "$cod" ]; then
+            echo "$cod,$tipo,$mod,$desc,$cant,$precio" >> "$REPORTE_CSV"
+        fi
+    done < "$ARCHIVO_PRODUCTOS"
 
-    echo "Reporte generado en: Datos/datos.CSV ✅"
+    echo "Reporte generado en: Datos/datos.CSV"
 }
 
-main_menu (){
-crear_archivos
-while true; do
-    echo "----------------------------------------"
-    echo "Sistema de Inventario - Citadel (Bash)"
-    echo "Usuario actual: $(usuario_actual)"
-    echo "1) Crear usuario"
-    echo "2) Cambiar contraseña"
-    echo "3) Login"
-    echo "4) Logout"
-    echo "5) Ingresar producto"
-    echo "6) Vender producto"
-    echo "7) Filtrar productos"
-    echo "8) Crear reporte CSV (Datos/datos.CSV)"
-    echo "0) Salir"
-    echo -n "Elija una opción: "
-    read opt
+# Menú principal
+main_menu() {
+    crear_archivos
+    while true; do
+        echo "----------------------------------------"
+        echo "Sistema de Inventario - Citadel"
+        echo "Usuario actual: $(usuario_actual)"
+        echo "1) Crear usuario"
+        echo "2) Cambiar contrasena"
+        echo "3) Login"
+        echo "4) Logout"
+        echo "5) Ingresar producto"
+        echo "6) Vender producto"
+        echo "7) Filtrar productos"
+        echo "8) Crear reporte CSV (Datos/datos.CSV)"
+        echo "0) Salir"
+        echo -n "Elija una opción: "
+        read opt
         case "$opt" in
             1) crear_usuario ;;
-            2) cambiar_contra ;;
+            2) cambiar_contrasena ;;
             3) login_usuario ;;
             4) logout_usuario ;;
             5) ingresar_producto ;;
@@ -406,7 +365,8 @@ while true; do
             0) echo "Saliendo..."; exit 0 ;;
             *) echo "Opción inválida." ;;
         esac
-done
+    done
 }
 
+# Ejecutar menú principal
 main_menu
