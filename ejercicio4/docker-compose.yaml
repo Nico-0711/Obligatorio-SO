@@ -1,0 +1,95 @@
+version: '3.8'
+
+services:
+  redis:
+    image: redis:alpine
+    container_name: redis-db
+    hostname: redis
+    volumes:
+      - redis-data:/data
+    networks:
+      - app-network
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+
+  web1:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: app-instance-1
+    hostname: web1
+    environment:
+      - NODE_ENV=production
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - app-network
+    restart: unless-stopped
+
+  web2:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: app-instance-2
+    hostname: web2
+    environment:
+      - NODE_ENV=production
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - app-network
+    restart: unless-stopped
+
+  web3:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: app-instance-3
+    hostname: web3
+    environment:
+      - NODE_ENV=production
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - app-network
+    restart: unless-stopped
+
+  nginx:
+    build:
+      context: .
+      dockerfile: nginx.Dockerfile
+    container_name: load-balancer
+    hostname: nginx
+    ports:
+      - "80:80"
+    depends_on:
+      - web1
+      - web2
+      - web3
+    networks:
+      - app-network
+    restart: unless-stopped
+
+networks:
+  app-network:
+    driver: bridge
+    name: todo-network
+
+volumes:
+  redis-data:
+    driver: local
+    name: redis-data-volume
