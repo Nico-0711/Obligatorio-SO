@@ -1,0 +1,277 @@
+<div class="row mb-4">
+    <div class="col-md-12">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h1>Sistema de Gestión de Tareas</h1>
+            <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#newTaskModal">
+                <i class="bi bi-plus-circle"></i> Nueva Tarea
+            </button>
+        </div>
+        
+        <div class="card system-stats mb-4">
+            <div class="card-header bg-dark text-white">
+                <i class="bi bi-info-circle me-2"></i>Información del Sistema
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-3">
+                        <div class="stat-item">
+                            <div class="stat-icon"><i class="bi bi-hdd"></i></div>
+                            <div class="stat-value">{{systemInfo.platform}}</div>
+                            <div class="stat-label">Sistema Operativo</div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="stat-item">
+                            <div class="stat-icon"><i class="bi bi-cpu"></i></div>
+                            <div class="stat-value">{{systemInfo.cpus}}</div>
+                            <div class="stat-label">Procesadores</div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="stat-item">
+                            <div class="stat-icon"><i class="bi bi-memory"></i></div>
+                            <div class="stat-value">{{systemInfo.totalMemory}}</div>
+                            <div class="stat-label">Memoria Total</div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="stat-item">
+                            <div class="stat-icon"><i class="bi bi-clock"></i></div>
+                            <div class="stat-value">{{systemInfo.uptime}}</div>
+                            <div class="stat-label">Uptime</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col">
+        <div class="card">
+            <div class="card-header bg-dark text-white">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <i class="bi bi-list-task me-2"></i>Mis Tareas
+                    </div>
+                    <div class="d-flex">
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="bi bi-search"></i></span>
+                            <input type="text" class="form-control" id="taskSearch" placeholder="Buscar tarea...">
+                        </div>
+                        <div class="dropdown ms-2">
+                            <button class="btn btn-light dropdown-toggle" type="button" id="filterDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                                <i class="bi bi-funnel"></i>
+                            </button>
+                            <ul class="dropdown-menu" aria-labelledby="filterDropdown">
+                                <li><a class="dropdown-item filter-status" href="#" data-status="all">Todas</a></li>
+                                <li><a class="dropdown-item filter-status" href="#" data-status="pendiente">Pendientes</a></li>
+                                <li><a class="dropdown-item filter-status" href="#" data-status="en-progreso">En Progreso</a></li>
+                                <li><a class="dropdown-item filter-status" href="#" data-status="completada">Completadas</a></li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover task-table">
+                        <thead>
+                            <tr>
+                                <th scope="col" width="5%">#</th>
+                                <th scope="col" width="25%">Título</th>
+                                <th scope="col" width="30%">Descripción</th>
+                                <th scope="col" width="10%">Prioridad</th>
+                                <th scope="col" width="10%">Categoría</th>
+                                <th scope="col" width="10%">Estado</th>
+                                <th scope="col" width="10%">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="taskTableBody">
+                            {{#each tasks}}
+                            <tr data-id="{{id}}" class="task-row" data-status="{{status}}">
+                                <td>{{@index}}</td>
+                                <td>{{title}}</td>
+                                <td class="task-description">{{description}}</td>
+                                <td>
+                                    {{#if (eq priority "alta")}}
+                                    <span class="badge bg-danger">Alta</span>
+                                    {{else if (eq priority "media")}}
+                                    <span class="badge bg-warning text-dark">Media</span>
+                                    {{else}}
+                                    <span class="badge bg-info text-dark">Baja</span>
+                                    {{/if}}
+                                </td>
+                                <td>
+                                    <span class="badge rounded-pill 
+                                        {{#if (eq category "conceptos")}}bg-primary{{/if}}
+                                        {{#if (eq category "práctica")}}bg-success{{/if}}
+                                        {{#if (eq category "investigación")}}bg-info text-dark{{/if}}
+                                        {{#if (eq category "general")}}bg-secondary{{/if}}
+                                    ">
+                                        {{category}}
+                                    </span>
+                                </td>
+                                <td>
+                                    {{#if (eq status "pendiente")}}
+                                    <span class="badge bg-secondary status-badge">Pendiente</span>
+                                    {{else if (eq status "en-progreso")}}
+                                    <span class="badge bg-warning text-dark status-badge">En Progreso</span>
+                                    {{else}}
+                                    <span class="badge bg-success status-badge">Completada</span>
+                                    {{/if}}
+                                </td>
+                                <td>
+                                    <div class="btn-group" role="group">
+                                        <button type="button" class="btn btn-sm btn-outline-primary edit-task" data-bs-toggle="modal" data-bs-target="#editTaskModal">
+                                            <i class="bi bi-pencil"></i>
+                                        </button>
+                                        <button type="button" class="btn btn-sm btn-outline-danger delete-task">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                            {{/each}}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Nueva Tarea -->
+<div class="modal fade" id="newTaskModal" tabindex="-1" aria-labelledby="newTaskModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-dark text-white">
+                <h5 class="modal-title" id="newTaskModalLabel"><i class="bi bi-plus-circle me-2"></i>Nueva Tarea</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="newTaskForm">
+                    <div class="mb-3">
+                        <label for="taskTitle" class="form-label">Título</label>
+                        <input type="text" class="form-control" id="taskTitle" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="taskDescription" class="form-label">Descripción</label>
+                        <textarea class="form-control" id="taskDescription" rows="3"></textarea>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col">
+                            <label for="taskPriority" class="form-label">Prioridad</label>
+                            <select class="form-select" id="taskPriority">
+                                <option value="baja">Baja</option>
+                                <option value="media" selected>Media</option>
+                                <option value="alta">Alta</option>
+                            </select>
+                        </div>
+                        <div class="col">
+                            <label for="taskCategory" class="form-label">Categoría</label>
+                            <select class="form-select" id="taskCategory">
+                                <option value="conceptos">Conceptos</option>
+                                <option value="práctica">Práctica</option>
+                                <option value="investigación">Investigación</option>
+                                <option value="general">General</option>
+                            </select>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" id="saveNewTask">Guardar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Editar Tarea -->
+<div class="modal fade" id="editTaskModal" tabindex="-1" aria-labelledby="editTaskModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-dark text-white">
+                <h5 class="modal-title" id="editTaskModalLabel"><i class="bi bi-pencil me-2"></i>Editar Tarea</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="editTaskForm">
+                    <input type="hidden" id="editTaskId">
+                    <div class="mb-3">
+                        <label for="editTaskTitle" class="form-label">Título</label>
+                        <input type="text" class="form-control" id="editTaskTitle" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="editTaskDescription" class="form-label">Descripción</label>
+                        <textarea class="form-control" id="editTaskDescription" rows="3"></textarea>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col">
+                            <label for="editTaskPriority" class="form-label">Prioridad</label>
+                            <select class="form-select" id="editTaskPriority">
+                                <option value="baja">Baja</option>
+                                <option value="media">Media</option>
+                                <option value="alta">Alta</option>
+                            </select>
+                        </div>
+                        <div class="col">
+                            <label for="editTaskCategory" class="form-label">Categoría</label>
+                            <select class="form-select" id="editTaskCategory">
+                                <option value="conceptos">Conceptos</option>
+                                <option value="práctica">Práctica</option>
+                                <option value="investigación">Investigación</option>
+                                <option value="general">General</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="editTaskStatus" class="form-label">Estado</label>
+                        <select class="form-select" id="editTaskStatus">
+                            <option value="pendiente">Pendiente</option>
+                            <option value="en-progreso">En Progreso</option>
+                            <option value="completada">Completada</option>
+                        </select>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" id="saveEditTask">Guardar cambios</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Toast para notificaciones -->
+<div class="position-fixed bottom-0 end-0 p-3" style="z-index: 11">
+    <div id="taskToast" class="toast" role="alert" aria-live="assertive" aria-atomic="true">
+        <div class="toast-header">
+            <strong class="me-auto" id="toastTitle">Notificación</strong>
+            <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
+        </div>
+        <div class="toast-body" id="toastMessage"></div>
+    </div>
+</div>
+
+<!-- Modal confirmación eliminar -->
+<div class="modal fade" id="confirmDeleteModal" tabindex="-1" aria-labelledby="confirmDeleteModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title" id="confirmDeleteModalLabel"><i class="bi bi-exclamation-triangle me-2"></i>Confirmar eliminación</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>¿Está seguro que desea eliminar esta tarea? Esta acción no se puede deshacer.</p>
+                <input type="hidden" id="deleteTaskId">
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-danger" id="confirmDelete">Eliminar</button>
+            </div>
+        </div>
+    </div>
+</div>

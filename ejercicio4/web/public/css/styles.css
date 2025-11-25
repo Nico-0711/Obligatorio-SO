@@ -1,0 +1,136 @@
+/* Estilos específicos para la aplicación de ToDo List con temática de SO */
+
+:root {
+  --os-dark: #2c3e50;
+  --os-primary: #3498db;
+  --os-success: #2ecc71;
+  --os-warning: #f39c12;
+  --os-danger: #e74c3c;
+  --os-info: #9b59b6;
+  --os-light: #ecf0f1;
+  --os-gray: #95a5a6;
+}
+
+body {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  background-color: #f8f9fa;
+  color: var(--os-dark);
+}
+
+/* Estilos para las tarjetas del sistema */
+.system-stats .card-header {
+  font-weight: bold;
+  display: flex;
+  align-items: center;
+}
+
+.stat-item {
+  text-align: center;
+  padding: 15px 10px;
+  border-radius: 8px;
+  background-color: var(--os-light);
+  transition: all 0.3s ease;
+}
+
+.stat-item:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 6px 10px rgba(0, 0, 0, 0.1);
+}
+
+.stat-icon {
+  font-size: 24px;
+  margin-bottom: 10px;
+  color: var(--os-primary);
+}
+
+.stat-icon i {
+  background-color: rgba(52, 152, 219, 0.1);
+  padding: 10px;
+  border-radius: 50%;
+}
+
+.stat-value {
+  font-size: 18px;
+  font-weight: bold;
+  margin-bottom: 5px;
+}
+
+.stat-label {
+  font-size: 14px;
+  color: var(--os-gray);
+}
+
+/* Estilos para la tabla de tareas */
+.task-table {
+  margin-bottom: 0;
+}
+
+.task-row {
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.task-row:hover {
+  background-color: rgba(52, 152, 219, 0.05);
+}
+
+.task-description {
+  max-width: 300px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Estilos para badges con animaciones */
+.badge {
+  transition: all 0.3s ease;
+}
+
+.badge:hover {
+  transform: scale(1.1);
+}
+
+.status-badge {
+  cursor: pointer;
+}
+
+/* Estilos para encabezados y títulos */
+h1 {
+  color: var(--os-dark);
+  font-weight: bold;
+  margin-bottom: 20px;
+  border-bottom: 3px solid var(--os-primary);
+  display: inline-block;
+  padding-bottom: 5px;
+}
+
+/* Terminal en el footer */
+.terminal-footer {
+  background-color: var(--os-dark);
+  color: #3f3;
+  padding: 10px;
+  border-radius: 5px;
+  font-family: 'Courier New', Courier, monospace;
+}
+
+/* Animaciones para mostrar operaciones del sistema */
+@keyframes blink {
+  0% { opacity: 1; }
+  50% { opacity: 0; }
+  100% { opacity: 1; }
+}
+
+.status-processing {
+  animation: blink 1s linear infinite;
+}
+
+/* Responsividad */
+@media (max-width: 767px) {
+  .stat-item {
+    margin-bottom: 15px;
+  }
+  
+  .task-description {
+    max-width: 150px;
+  }
+}
