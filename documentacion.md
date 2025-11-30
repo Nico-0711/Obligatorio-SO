@@ -6,6 +6,8 @@
 2. [Ejercicio 2 - POSIX: Panel de Aeropuerto](#ejercicio-2)
 3. [Ejercicio 3 - ADA: Sistema de Tambo](#ejercicio-3)
 
+4. [Ejercicio 4 - DOCKER: SISTEMA DE GESTIÓN DE TAREAS](#ejercicio-4)
+
 ---
 
 <a name="ejercicio-1"></a>
@@ -849,25 +851,125 @@ void *comportamientoPasajero(void *arg) {
 
 <a name="ejercicio-3"></a>
 
-## EJERCICIO 3 - POSIX: PANEL DE AEROPUERTO (PROBLEMA LECTORES-ESCRITORES)
+## EJERCICIO 3 - ADA: Sistema de Tambo
 
+
+### Estructura General
+
+El programa se organiza en **tareas concurrentes (tasks)** que representan los distintos componentes del tambo:
+
+| Componente | Tipo de entidad | Responsabilidad |
+|-------------|------------------|------------------|
+| `Vaca` | **Task type (instanciable)** | Representa cada vaca. Decide aleatoriamente si se vacuna o se ordeña primero. |
+| `Sala_Ordeñe` | **Task única** | Controla la capacidad de 15 vacas simultáneas. |
+| `Vacunacion` | **Task única** | Coordina el acceso exclusivo al pasillo y las 5 mangas. |
+| `Camiones` | **Task única** | Administra la carga de vacas en los camiones y detecta cuándo ambos están llenos. |
+
+#### Sincronización
+
+La sincronización entre vacas y áreas se logra mediante **entradas de tasks** (`entry`) y **select statements**, garantizando acceso controlado y evitando condiciones de carrera.  
+Ejemplo:
+
+```ada
+select
+ when Dentro < Cap_Ordeñe =>
+    accept Entrar (Id : Integer);
+or
+ accept Salir (Id : Integer);
+end select;
 ```
 
+Este mecanismo permite que cada vaca bloquee su ejecución hasta que el recurso esté disponible.
+
+
+### `Task` Sala_Ordeñe
+
+Controla el ingreso y salida de vacas en el ordeñe.
+Mantiene un contador Dentro para asegurar que no haya más de 15 vacas a la vez.
+
+#### Entradas:
+
+- Entrar(Id)
+
+- Salir(Id)
+
+Cada entrada imprime el estado actual del área y la cantidad de vacas dentro.
+
+### `Task` Vacunación
+
+Modela la zona de vacunación compuesta por el pasillo y 5 mangas.
+
+#### Entradas:
+
+- Entrar_Pasillo(Id)
+
+- Entrar_Manga(Id)
+
+- Salir_Manga(Id)
+
+Maneja dos restricciones clave:
+
+- Solo una vaca puede usar el pasillo a la vez (Pasillo_Libre).
+
+- Máximo 5 vacas en las mangas (En_Mangas).
+
+También implementa una cola circular (Cola) para mantener el orden de ingreso y salida de las vacas
+
+### `Task` Camiones
+
+Administra la carga de las vacas en los dos camiones.
+Cada vaca ejecuta Camiones.Subir(Id) al finalizar su ordeñe y vacunación.
+
+Internamente, el task lleva contadores independientes (C1, C2) y asigna vacas al primer camión que tenga lugar disponible.
+Cuando ambos alcanzan su capacidad (50 cada uno), se imprime el mensaje final: "Ambos camiones llenos"
+
+### `Task Type` Vaca
+
+Representa la ejecución concurrente de cada vaca.
+Cada vaca realiza su propio ciclo de vida:
+
+- Decide aleatoriamente si vacunarse o ordeñarse primero.
+
+- Espera su turno en cada área, respetando las restricciones de capacidad.
+
+- Finalmente sube a uno de los camiones.
+
+Ejemplo de flujo:
+
+```ada
+if Rand(2) = 1 then
+   Sala_Ordeñe.Entrar(My_Id);
+   delay Duration(Rand(3));
+   Sala_Ordeñe.Salir(My_Id);
+   Vacunacion.Entrar_Pasillo(My_Id);
+   ...
+else
+   Vacunacion.Entrar_Pasillo(My_Id);
+   ...
+   Sala_Ordeñe.Entrar(My_Id);
+   ...
+end if;
 ```
 
-<a name="ejercicio-4"></a>
+### Programa Principal
 
-## EJERCICIO 4 - POSIX: PANEL DE AEROPUERTO (PROBLEMA LECTORES-ESCRITORES)
+Consulta periódicamente si los camiones ya están llenos antes de finalizar el programa.
 
-¡Excelente iniciativa! El informe se ve muy profesional y sigue un formato claro.
+### Decisiones de Diseño
 
-Para completar la **Parte 4 (Docker)** con la misma calidad, **no necesito que me envíes los archivos**, ya que con las capturas y la letra del obligatorio tengo suficiente información para deducir la arquitectura estándar que se espera en este tipo de ejercicios. Puedo generar la documentación técnica basándome en las "Best Practices" que pide la letra.
 
-A continuación, te redacto el contenido completo para la **sección 4** siguiendo tu estilo (Markdown, numeración, tono técnico). Solo tendrás que copiar, pegar y verificar si algún puerto (ej. 3000) coincide con tu código.
+- Cola Circular en Vacunación:
+Implementa un orden de salida estricto, evitando que una vaca salga antes de su turno.
 
----
+- Asignación Dinámica de Camiones:
+Simplifica la lógica: cada vaca se dirige al primer camión con espacio disponible.
 
-### Lo que puedes copiar y pegar en tu informe:
+- Entrada a sala de ordeñe/vacunación:
+se elije un numero aleatorio para saber si una vaca entra
+primero a la sala de ordeñe o a la de vacunación.
+
+
+
 
 <a name="ejercicio-4"></a>
 
