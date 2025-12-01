@@ -5,7 +5,6 @@
 1. [Ejercicio 1 - Bash: Sistema de Inventario Citadel](#ejercicio-1)
 2. [Ejercicio 2 - POSIX: Panel de Aeropuerto](#ejercicio-2)
 3. [Ejercicio 3 - ADA: Sistema de Tambo](#ejercicio-3)
-
 4. [Ejercicio 4 - DOCKER: SISTEMA DE GESTIÓN DE TAREAS](#ejercicio-4)
 
 ---
